@@ -39,11 +39,20 @@ class Transaction(db.Model):
                            owner=user)
 
     def to_dict(self):
-        return {'date':self.date,
-                'merchant':self.merchant,
-                'amount':self.amount,
-                'comment':self.comment,
-                'source':self.source}
+        return {'date': self.date,
+                'merchant': self.merchant,
+                'amount': self.amount,
+                'comment': self.comment,
+                'source': self.source}
+
+    def column(name):
+        string_to_column = {'date': Transaction.date,
+                            'merchant': Transaction.merchant,
+                            'amount': Transaction.amount,
+                            'comment': Transaction.comment,
+                            'source': Transaction.source}
+        return string_to_column[name]
+
 
 @login.user_loader
 def load_user(id):
