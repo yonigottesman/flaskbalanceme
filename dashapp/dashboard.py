@@ -6,7 +6,7 @@ import dash_table
 from dashapp.parser.parse import get_transactions
 from flask_login import current_user
 from app import db
-from app.models import User, Transaction
+from app.models import Transaction
 from datetime import datetime as dt
 import json
 
@@ -15,7 +15,16 @@ colors = {
     'background': '#111111',
     'text': '#7FDBFF'
 }
-TX_PAGE_SIZE = 50
+TX_PAGE_SIZE = 5
+
+table_columns = [{'name': 'date', 'id': 'date', 'editable': False},
+                 {'name': 'merchant', 'id': 'merchant'},
+                 {'name': 'amount', 'id': 'amount'},
+                 {'name': 'comment', 'id': 'comment'},
+                 {'name': 'source', 'id': 'source'},
+                 {'name': 'tx-id', 'id': 'tx_id', 'hidden': True}]
+
+
 dashapp.layout = html.Div(style={},
                           children=[
                               html.H1(
@@ -72,7 +81,7 @@ dashapp.layout = html.Div(style={},
                                   #     'rule': 'display: inline; white-space: inherit; overflow: inherit; text-overflow: inherit;'
                                   # }],
                                   id='datatable-container',
-                                  columns=[{"name": label, "id": label} for label in ['date', 'merchant', 'amount', 'comment', 'source']],
+                                  columns=table_columns,
                                   data=[],
                                   editable=True,
                                   sorting='be',
@@ -90,7 +99,8 @@ dashapp.layout = html.Div(style={},
                               ),
                               
                               # Hidden div inside the app that stores the intermediate value
-                              html.Div(id='signal', style={'display': 'none'})
+                              html.Div(id='signal', style={'display': 'none'}),
+                              html.Div(id='edit-null-div', style={'display': 'none'})
                           ])
 
 
@@ -99,7 +109,6 @@ dashapp.layout = html.Div(style={},
                    Input('signal', 'children'),
                    Input('datatable-container', 'sorting_settings')])
 def update_graph(pagination_settings, children, sorting_settings):
-    
     if len(sorting_settings) == 0:
         order_by = Transaction.column('date').asc()
     else:
@@ -117,7 +126,8 @@ def update_graph(pagination_settings, children, sorting_settings):
              filter(Transaction.date >= sd).
              filter(Transaction.date <= ed).
              order_by(order_by).
-             paginate(pagination_settings['current_page'],
+             # pagination of SQLAlchemy starts from 1
+             paginate(pagination_settings['current_page'] + 1,
                       pagination_settings['page_size'], False).items])
 
 
@@ -135,6 +145,27 @@ def update_output(contents, start_date, end_date, filename):
         db.session.commit()
 
     return json.dumps({'start_date': start_date, 'end_date': end_date})
+
+
+@dashapp.callback(
+    Output('edit-null-div', 'children'),
+    [Input('datatable-container', 'data_timestamp'),
+     Input('datatable-container', 'data_previous')],
+    [State('datatable-container', 'data')])
+def update_columns(timestamp, prev_rows, rows):
+    if (timestamp is None):
+        return None
+
+    # Find changed transaction
+    for prev, curr in zip(prev_rows, rows):
+        if (prev != curr):
+            tx_id = prev['tx_id']
+            txs = current_user.transactions.filter(Transaction.id == tx_id)\
+                                           .all()
+            if len(txs) == 1:
+                tx = txs[0]
+                tx.update(curr)
+                db.session.commit()
 
 
 @dashapp.callback(Output('monthly-inout', 'figure'),

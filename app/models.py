@@ -43,7 +43,15 @@ class Transaction(db.Model):
                 'merchant': self.merchant,
                 'amount': self.amount,
                 'comment': self.comment,
-                'source': self.source}
+                'source': self.source,
+                'tx_id': self.id}
+
+    def update(self, tdict):
+        # self.date = dt.strptime(tdict['date'], '%Y-%m-%d')
+        self.merchant = tdict['merchant']
+        self.amount = tdict['amount']
+        self.comment = tdict['comment']
+        self.source = tdict['source']
 
     def column(name):
         string_to_column = {'date': Transaction.date,

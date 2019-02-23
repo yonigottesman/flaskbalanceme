@@ -1,5 +1,5 @@
 from app import create_app, db
-from app.models import User
+from app.models import User, Transaction
 
 
 # Create Flask server app
@@ -11,4 +11,4 @@ balanceme = get_dashapp()
 
 @server.shell_context_processor
 def make_shell_context():
-    return {'db': db, 'User': User}
+    return {'db': db, 'User': User, 'Transaction': Transaction}
