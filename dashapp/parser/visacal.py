@@ -51,16 +51,19 @@ def get_visa(contents, filename):
 
     content_type, content_string = contents.split(',')
     decoded = base64.b64decode(content_string)
+    try:
+        decoded_file = decoded.decode('utf-16')
+        source_type = "visa"
+        source_type_id = str(decoded_file.split("\n")[1].split("המסתיים בספרות")[1]
+                             .split(",")[0])
+        source = source_type+' '+source_type_id
 
-    decoded_file = decoded.decode('utf-16')
-    source_type = "visa"
-    source_type_id = str(decoded_file.split("\n")[1].split("המסתיים בספרות")[1]
-                         .split(",")[0])
-    source = source_type+' '+source_type_id
-
-    transactions = []
-    for line in decoded_file.split('\n'):
-        transaction = parse_transaction(line, source=source)
-        if transaction is not None:
-            transactions.append(transaction)
-    return transactions
+        transactions = []
+        
+        for line in decoded_file.split('\n'):
+            transaction = parse_transaction(line, source=source)
+            if transaction is not None:
+                transactions.append(transaction)
+        return transactions
+    except Exception:  # TODO catch decode error and not all
+        return None

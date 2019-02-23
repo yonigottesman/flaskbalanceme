@@ -18,4 +18,4 @@ protect_dashviews(dashapp)
 def get_dashapp():
     return dashapp
 
-from dashapp import app1
+from dashapp import dashboard

@@ -30,6 +30,20 @@ class Transaction(db.Model):
     source = db.Column(db.String(64), index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
 
+    def valueOf(tdict, user):
+        return Transaction(date=tdict['date'],
+                           merchant=tdict['merchant'],
+                           amount=tdict['amount'],
+                           comment=tdict['comment'],
+                           source=tdict['source'],
+                           owner=user)
+
+    def to_dict(self):
+        return {'date':self.date,
+                'merchant':self.merchant,
+                'amount':self.amount,
+                'comment':self.comment,
+                'source':self.source}
 
 @login.user_loader
 def load_user(id):
