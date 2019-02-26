@@ -6,102 +6,122 @@ import dash_table
 from dashapp.parser.parse import get_transactions
 from flask_login import current_user
 from app import db
-from app.models import Transaction
+from app.models import Transaction, Category, Subcategory
 from datetime import datetime as dt
 import json
-
+from itertools import groupby
+from datetime import timedelta
 
 colors = {
     'background': '#111111',
     'text': '#7FDBFF'
 }
-TX_PAGE_SIZE = 5
+TX_PAGE_SIZE = 20
 
 table_columns = [{'name': 'date', 'id': 'date', 'editable': False},
                  {'name': 'merchant', 'id': 'merchant'},
                  {'name': 'amount', 'id': 'amount'},
                  {'name': 'comment', 'id': 'comment'},
                  {'name': 'source', 'id': 'source'},
-                 {'name': 'tx-id', 'id': 'tx_id', 'hidden': True}]
+                 {'name': 'tx-id', 'id': 'tx_id', 'hidden': True},
+                 {'name': 'subcategory', 'id': 'subcategory'}]
 
 
-dashapp.layout = html.Div(style={},
-                          children=[
-                              html.H1(
-                                  children='Balanceme',
-                                  style={
-                                      'textAlign': 'center',
-                                      'color': colors['text']
-                                  }
-                              ),
-                              
-                              dcc.Upload(
-                                  id='datatable-upload',
-                                  children=html.Div([
-                                      'Drag and Drop or ',
-                                      html.A('Select Files')
-                                  ]),
-                                  style={
-                                      'width': '100%',
-                                      'height': '60px',
-                                      'lineHeight': '60px',
-                                      'borderWidth': '1px',
-                                      'borderStyle': 'dashed',
-                                      'borderRadius': '5px',
-                                      'textAlign': 'center',
-                                      'margin': '10px'
-                                  },
-                              ),
-                              
-                              dcc.DatePickerRange(
-                                  id='date-picker-range',
-                                  start_date=dt(2019, 1, 1),
-                                  end_date=dt(2019, 2, 1),
-                              ),
-                              
-                              dash_table.DataTable(
-                                  pagination_mode='be',
-                                  pagination_settings={
-                                      'current_page': 0,
-                                      'page_size': TX_PAGE_SIZE
-                                  },
-                                  style_table={
-                                      'maxHeight': '300',
-                                      'overflowY': 'scroll',
-                                      # 'overflowX': 'scroll'
-                                  },
-                                  # style_cell={
-                                  #     'minWidth': '0px', 'maxWidth': '180px',
-                                  #     'whiteSpace': 'no-wrap',
-                                  #     'overflow': 'hidden',
-                                  #     'textOverflow': 'ellipsis',
-                                  # },
-                                  # css=[{
-                                  #     'selector': '.dash-cell div.dash-cell-value',
-                                  #     'rule': 'display: inline; white-space: inherit; overflow: inherit; text-overflow: inherit;'
-                                  # }],
-                                  id='datatable-container',
-                                  columns=table_columns,
-                                  data=[],
-                                  editable=True,
-                                  sorting='be',
-                                  sorting_type='single',
-                                  sorting_settings=[{'column_id': 'date', 'direction': 'asc'}]
-                                  # filtering=False,
-                                  # n_fixed_rows=1,
-                              ),
-                              
-                              html.Button('Add Transaction', id='editing-rows-button', n_clicks=0),
-                              
-                              dcc.Graph(
-                                  id='monthly-inout',
-                                  figure={}
-                              ),
-                              
-                              # Hidden div inside the app that stores the intermediate value
-                              html.Div(id='signal', style={'display': 'none'}),
-                              html.Div(id='edit-null-div', style={'display': 'none'})
-                          ])
+dashapp.layout = html.Div(
+    [
+        # table 
+        html.Div([
+            # meta
+            html.Div([
+                dcc.Upload(
+                    id='datatable-upload',
+                    children=html.Div([
+                        'Drag and Drop or ',
+                        html.A('Select Files')
+                    ]),
+                    style={
+                        'width': '100%',
+                        'height': '60px',
+                        'lineHeight': '60px',
+                        'borderWidth': '1px',
+                        'borderStyle': 'dashed',
+                        'borderRadius': '5px',
+                        'textAlign': 'center',
+                        'margin': '10px'
+                    },
+                ),
+                
+                dcc.DatePickerRange(
+                    id='date-picker-range',
+                    start_date=dt(2019, 1, 1),
+                    end_date=dt(2019, 2, 1),
+                ),
+                # Hidden div inside the app that stores the intermediate value
+                html.Div(id='signal', style={'display': 'none'}),
+                html.Div(id='edit-null-div', style={'display': 'none'})],
+                     # style={'width': '49%', 'display': 'inline-block'}
+            ),
+            html.Div([
+                dash_table.DataTable(
+                    pagination_mode='be',
+                    pagination_settings={
+                        'current_page': 0,
+                        'page_size': TX_PAGE_SIZE
+                    },
+                    style_table={
+                        'maxHeight': '300',
+                        'overflowY': 'scroll',
+                        # 'overflowX': 'scroll'
+                    },
+                    id='datatable-container',
+                    columns=table_columns,
+                    data=[],
+                    editable=True,
+                    sorting='be',
+                    sorting_type='single',
+                    sorting_settings=[{'column_id': 'date',
+                                       'direction': 'asc'}]
+                    # filtering=False,
+                    # n_fixed_rows=1,
+                )],
+                     # style={'width': '49%', 'display': 'inline-block'}
+            )
+        ]),
+
+        html.Div([
+
+            dcc.Graph(
+                id='monthly-graph',
+                figure={}
+            ),
+        ]),
+        
+        html.Div([
+            dash_table.DataTable(
+                style_table={
+                    'maxHeight': '300',
+                    'overflowY': 'scroll',
+                    # 'overflowX': 'scroll'
+                },
+                id='category-container',
+                columns=[{'name': 'name', 'id': 'name'}],
+                data=[],
+                editable=True,
+                sorting=False,
+                # row_deletable=True
+            ),
+
+            html.Div([
+                dcc.Input(
+                    id='add-category-name',
+                    placeholder='New Category',
+                    value='',
+                    style={'padding': 10}
+                ),
+                html.Button('Add Category', id='add-category-button', n_clicks=0)
+            ], style={'height': 50}),
+        ])
+    ])
 
 
 @dashapp.callback(Output('datatable-container', 'data'),
@@ -139,8 +159,10 @@ def update_graph(pagination_settings, children, sorting_settings):
 def update_output(contents, start_date, end_date, filename):
 
     if contents is not None:
+        untagged = current_user.subcategories\
+                               .filter(Subcategory.name == 'untagged').first()
         transactions = get_transactions(contents, filename)
-        [db.session.add(Transaction.valueOf(tx, current_user))
+        [db.session.add(Transaction.valueOf(tx, current_user, untagged))
          for tx in transactions]
         db.session.commit()
 
@@ -168,17 +190,64 @@ def update_columns(timestamp, prev_rows, rows):
                 db.session.commit()
 
 
-@dashapp.callback(Output('monthly-inout', 'figure'),
-                  [Input('datatable-container', 'data')])
-def update_inout(data):
+@dashapp.callback(Output('category-container', 'data'),
+                  [Input('add-category-button', 'n_clicks')],
+                  [State('category-container', 'data'),
+                   State('add-category-name', 'value')])
+def update_categories(clicks, categories, new_category):
+    if new_category is not '':
+        current = current_user.categories.filter(Category.name == new_category).first()
+        if current is None:
+            category = Category(name=new_category, owner=current_user)
+            db.session.add(category)
+            db.session.commit()
+    return [{'name': tx.name} for tx in current_user.categories.all()]
+
+
+@dashapp.callback(Output('monthly-graph', 'figure'),
+                  [Input('signal', 'children')])
+def update_monthly_graph(date):
+    data_outcome = current_user.transactions.filter(Transaction.amount >= 0).\
+        order_by(Transaction.column('date').asc())
+    data_income = current_user.transactions.filter(Transaction.amount < 0).\
+        order_by(Transaction.column('date').asc())
+
+    outcome_aggregation = []
+    income_aggregation = []
+    
+    for k, g in groupby(data_outcome, lambda x: (x.date.year, x.date.month)):
+        month = str(k[0])+"-"+str(k[1])
+        month_sum = 0
+        for tx in g:
+            month_sum = month_sum + tx.amount
+        outcome_aggregation.append((month, month_sum))
+
+    for k, g in groupby(data_income, lambda x: (x.date.year, x.date.month)):
+        month = str(k[0])+"-"+str(k[1])
+        month_sum = 0
+        for tx in g:
+            month_sum = month_sum + tx.amount
+        income_aggregation.append((month, month_sum))
+
 
     figure = {
         'data': [
-            {'x': [1, 2, 3], 'y': [4, 1, 2], 'type': 'bar', 'name': 'Income'},
-            {'x': [1, 2, 3], 'y': [2, 4, 5], 'type': 'bar', 'name': 'Outcome'},
+            {'x': [x[0] for x in outcome_aggregation],
+             'y': [x[1] for x in outcome_aggregation],
+             'type': 'bar',
+             'name': 'Expense'},
+            {'x': [x[0] for x in income_aggregation],
+             'y': [x[1] for x in income_aggregation],
+             'type': 'bar',
+             'name': 'Income'},
         ],
         'layout': {
-            'title': 'Monthly Income/Outcome'
+            'title': 'Dash Data Visualization',
+            # ,
+            # 
+            'xaxis': {'tickformat': '%Y-%m',
+                      # 'dtick': 86400000.0*30,
+                      'range': [dt.now() - timedelta(days=365), dt.now()]}
         }
     }
     return figure

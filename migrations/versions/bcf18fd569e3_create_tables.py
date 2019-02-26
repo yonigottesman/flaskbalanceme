@@ -1,8 +1,8 @@
-"""Initial tables
+"""create tables
 
-Revision ID: 5724fa04a610
+Revision ID: bcf18fd569e3
 Revises: 
-Create Date: 2019-02-22 06:53:57.539004
+Create Date: 2019-02-24 20:30:56.967991
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '5724fa04a610'
+revision = 'bcf18fd569e3'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -27,6 +27,24 @@ def upgrade():
     )
     op.create_index(op.f('ix_user_email'), 'user', ['email'], unique=True)
     op.create_index(op.f('ix_user_username'), 'user', ['username'], unique=True)
+    op.create_table('category',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('name', sa.String(length=64), nullable=True),
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_category_name'), 'category', ['name'], unique=False)
+    op.create_table('subcategory',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('name', sa.String(length=64), nullable=True),
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('category_id', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['category_id'], ['category.id'], ),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_subcategory_name'), 'subcategory', ['name'], unique=False)
     op.create_table('transaction',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('date', sa.DateTime(), nullable=True),
@@ -35,6 +53,8 @@ def upgrade():
     sa.Column('comment', sa.String(length=128), nullable=True),
     sa.Column('source', sa.String(length=64), nullable=True),
     sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('subcategory_id', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['subcategory_id'], ['subcategory.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -52,6 +72,10 @@ def downgrade():
     op.drop_index(op.f('ix_transaction_date'), table_name='transaction')
     op.drop_index(op.f('ix_transaction_comment'), table_name='transaction')
     op.drop_table('transaction')
+    op.drop_index(op.f('ix_subcategory_name'), table_name='subcategory')
+    op.drop_table('subcategory')
+    op.drop_index(op.f('ix_category_name'), table_name='category')
+    op.drop_table('category')
     op.drop_index(op.f('ix_user_username'), table_name='user')
     op.drop_index(op.f('ix_user_email'), table_name='user')
     op.drop_table('user')

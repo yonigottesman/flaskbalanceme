@@ -10,6 +10,10 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(128))
     transactions = db.relationship('Transaction', backref='owner',
                                    lazy='dynamic', cascade='delete')
+    categories = db.relationship('Category', backref='owner',
+                                 lazy='dynamic', cascade='delete')
+    subcategories = db.relationship('Subcategory', backref='owner',
+                                    lazy='dynamic', cascade='delete')
 
     def __repr__(self):
         return '<User {}>'.format(self.username)
@@ -29,14 +33,16 @@ class Transaction(db.Model):
     comment = db.Column(db.String(128), index=True)
     source = db.Column(db.String(64), index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    subcategory_id = db.Column(db.Integer, db.ForeignKey('subcategory.id'))
 
-    def valueOf(tdict, user):
+    def valueOf(tdict, user, subcategory):
         return Transaction(date=tdict['date'],
                            merchant=tdict['merchant'],
                            amount=tdict['amount'],
                            comment=tdict['comment'],
                            source=tdict['source'],
-                           owner=user)
+                           owner=user,
+                           subcategory=subcategory)
 
     def to_dict(self):
         return {'date': self.date,
@@ -44,7 +50,8 @@ class Transaction(db.Model):
                 'amount': self.amount,
                 'comment': self.comment,
                 'source': self.source,
-                'tx_id': self.id}
+                'tx_id': self.id,
+                'subcategory': self.subcategory.name}
 
     def update(self, tdict):
         # self.date = dt.strptime(tdict['date'], '%Y-%m-%d')
@@ -60,6 +67,23 @@ class Transaction(db.Model):
                             'comment': Transaction.comment,
                             'source': Transaction.source}
         return string_to_column[name]
+
+
+class Category(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64), index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    subcategories = db.relationship('Subcategory', backref='category',
+                                    lazy='dynamic', cascade='delete')
+
+
+class Subcategory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64), index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    category_id = db.Column(db.Integer, db.ForeignKey('category.id'))
+    transactions = db.relationship('Transaction', backref='subcategory',
+                                   lazy='dynamic', cascade='delete')
 
 
 @login.user_loader

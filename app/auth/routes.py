@@ -4,7 +4,7 @@ from flask_login import login_user, logout_user, current_user
 from app import db
 from app.auth import bp
 from app.auth.forms import LoginForm, RegistrationForm
-from app.models import User
+from app.models import User, Category, Subcategory
 
 
 @bp.route('/login', methods=['GET', 'POST'])
@@ -31,6 +31,15 @@ def logout():
     return redirect(url_for('main.index'))
 
 
+def init_categories(user):
+    untagged_category = Category(name='untagged', owner=user)
+    db.session.add(untagged_category)
+    untagged_subcategory = Subcategory(name='untagged',
+                                       owner=user, category=untagged_category)
+    db.session.add(untagged_subcategory)
+    db.session.commit()
+
+
 @bp.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
@@ -41,6 +50,7 @@ def register():
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.commit()
+        init_categories(user)
         flash(('Congratulations, you are now a registered user!'))
         return redirect(url_for('auth.login'))
     return render_template('auth/register.html', title=('Register'),
