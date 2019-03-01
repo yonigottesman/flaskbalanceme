@@ -1,6 +1,4 @@
-import pandas as pd
 import base64
-import io
 import dateutil.parser
 
 
@@ -47,14 +45,15 @@ def parse_transaction(line, source):
     return transaction
 
 
-def get_visa(contents, filename):
+def get_transactions(contents, filename):
 
     content_type, content_string = contents.split(',')
     decoded = base64.b64decode(content_string)
     try:
         decoded_file = decoded.decode('utf-16')
         source_type = "visa"
-        source_type_id = str(decoded_file.split("\n")[1].split("המסתיים בספרות")[1]
+        source_type_id = str(decoded_file.split("\n")[1]
+                             .split("המסתיים בספרות")[1]
                              .split(",")[0])
         source = source_type+' '+source_type_id
 

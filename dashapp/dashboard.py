@@ -229,7 +229,6 @@ def update_monthly_graph(date):
             month_sum = month_sum + tx.amount
         income_aggregation.append((month, month_sum))
 
-
     figure = {
         'data': [
             {'x': [x[0] for x in outcome_aggregation],
@@ -237,7 +236,7 @@ def update_monthly_graph(date):
              'type': 'bar',
              'name': 'Expense'},
             {'x': [x[0] for x in income_aggregation],
-             'y': [x[1] for x in income_aggregation],
+             'y': [x[1]*(-1) for x in income_aggregation],
              'type': 'bar',
              'name': 'Income'},
         ],
