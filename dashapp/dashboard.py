@@ -6,7 +6,7 @@ import dash_table
 from dashapp.parser.parse import get_transactions
 from flask_login import current_user
 from app import db
-from app.models import Transaction, Category, Subcategory
+from app.models import Transaction, Category, Subcategory, Rule
 from datetime import datetime as dt
 import json
 from itertools import groupby
@@ -164,7 +164,47 @@ dashapp.layout = html.Div(
                     ], className='four columns'),
                 ], className="row"),
             ], className="six columns")
-        ], className="row")
+        ], className="row"),
+
+        html.Div([
+            dash_table.DataTable(
+                style_table={
+                    'maxHeight': '300',
+                    'overflowY': 'scroll',
+                    # 'overflowX': 'scroll'
+                },
+                id='rules-container',
+                columns=[{'name': 'Contains', 'id': 'contains'},
+                         {'name': 'Subcategory', 'id': 'subcategory'}],
+                data=[],
+                editable=True,
+                sorting=False,
+                # row_deletable=True
+            ),
+
+            html.Div([
+                html.Div([
+                    dcc.Input(
+                        id='add-rule-text',
+                        placeholder='Transaction text contains',
+                        value='',
+                        style={'padding': 10}
+                    ),
+                ], className='four columns'),
+                html.Div([
+                    dcc.Dropdown(
+                        id='add-rule-subcategory',
+                        options=[],
+                        value=None
+                    ),
+                ], className='four columns'),
+                html.Div([
+                    html.Button('Add Rule',
+                                id='add-rule-button',
+                                n_clicks=0)
+                ], className='four columns'),
+            ], className="row"),
+        ])
     ])
 
 
@@ -273,10 +313,41 @@ def update_scategories(clicks, subcategories,
             for tx in current_user.subcategories.all()]
 
 
+@dashapp.callback(Output('rules-container', 'data'),
+                  [Input('add-rule-button', 'n_clicks')],
+                  [State('rules-container', 'data'),
+                   State('add-rule-text', 'value'),
+                   State('add-rule-subcategory', 'value')])
+def update_rules(clicks, rules,
+                 new_rule_text,
+                 new_rule_subcategory):
+    if new_rule_text is not '' and new_rule_subcategory is not None:
+        current = current_user.rules.\
+            filter(Rule.text == new_rule_text).first()
+        if current is None:
+            subcategory = current_user.subcategories.\
+                filter(Subcategory.name == new_rule_subcategory).first()
+            if subcategory is not None:
+                rule = Rule(text=new_rule_text,
+                            owner=current_user,
+                            subcategory=subcategory)
+                db.session.add(rule)
+                db.session.commit()
+    return [{'contains': tx.text, 'subcategory': tx.subcategory.name}
+            for tx in current_user.rules.all()]
+
+
 @dashapp.callback(Output('add-subcategory-category', 'options'),
                   [Input('category-container', 'data')])
 def update_subcategory_add_dropdown(data):
     return [{'label': i['name'], 'value': i['name']} for i in data]
+
+
+@dashapp.callback(Output('add-rule-subcategory', 'options'),
+                  [Input('subcategory-container', 'data')])
+def update_rule_add_dropdown(data):
+    return [{'label': i['subcategory'], 'value': i['subcategory']}
+            for i in data]
 
 
 @dashapp.callback(Output('monthly-graph', 'figure'),

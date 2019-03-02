@@ -1,8 +1,8 @@
-"""create tables with cascade
+"""Create tables
 
-Revision ID: 30c84c22d2a6
+Revision ID: 7ef51e80db9e
 Revises: 
-Create Date: 2019-03-02 14:03:31.795406
+Create Date: 2019-03-02 18:24:49.655314
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '30c84c22d2a6'
+revision = '7ef51e80db9e'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -45,6 +45,16 @@ def upgrade():
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_subcategory_name'), 'subcategory', ['name'], unique=False)
+    op.create_table('rule',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('text', sa.String(length=64), nullable=True),
+    sa.Column('subcategory_id', sa.Integer(), nullable=True),
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['subcategory_id'], ['subcategory.id'], ),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_rule_text'), 'rule', ['text'], unique=False)
     op.create_table('transaction',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('date', sa.DateTime(), nullable=True),
@@ -72,6 +82,8 @@ def downgrade():
     op.drop_index(op.f('ix_transaction_date'), table_name='transaction')
     op.drop_index(op.f('ix_transaction_comment'), table_name='transaction')
     op.drop_table('transaction')
+    op.drop_index(op.f('ix_rule_text'), table_name='rule')
+    op.drop_table('rule')
     op.drop_index(op.f('ix_subcategory_name'), table_name='subcategory')
     op.drop_table('subcategory')
     op.drop_index(op.f('ix_category_name'), table_name='category')

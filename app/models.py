@@ -17,6 +17,9 @@ class User(UserMixin, db.Model):
     subcategories = db.relationship('Subcategory', backref='owner',
                                     lazy='dynamic',
                                     cascade='all, delete, delete-orphan')
+    rules = db.relationship('Rule', backref='owner',
+                            lazy='dynamic',
+                            cascade='all, delete, delete-orphan')
 
     def __repr__(self):
         return '<User {}>'.format(self.username)
@@ -87,6 +90,15 @@ class Subcategory(db.Model):
     category_id = db.Column(db.Integer, db.ForeignKey('category.id'))
     transactions = db.relationship('Transaction', backref='subcategory',
                                    lazy='dynamic', cascade='delete')
+    rules = db.relationship('Rule', backref='subcategory',
+                            lazy='dynamic', cascade='delete')
+
+
+class Rule(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    text = db.Column(db.String(64), index=True)
+    subcategory_id = db.Column(db.Integer, db.ForeignKey('subcategory.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
 
 
 @login.user_loader
