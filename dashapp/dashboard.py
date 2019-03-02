@@ -26,10 +26,13 @@ table_columns = [{'name': 'date', 'id': 'date', 'editable': False},
                  {'name': 'tx-id', 'id': 'tx_id', 'hidden': True},
                  {'name': 'subcategory', 'id': 'subcategory'}]
 
+dashapp.css.append_css({
+    'external_url': 'https://codepen.io/chriddyp/pen/bWLwgP.css'
+})
 
 dashapp.layout = html.Div(
     [
-        # table 
+        # table
         html.Div([
             # meta
             html.Div([
@@ -50,7 +53,7 @@ dashapp.layout = html.Div(
                         'margin': '10px'
                     },
                 ),
-                
+
                 dcc.DatePickerRange(
                     id='date-picker-range',
                     start_date=dt(2019, 1, 1),
@@ -95,32 +98,73 @@ dashapp.layout = html.Div(
                 figure={}
             ),
         ]),
-        
         html.Div([
-            dash_table.DataTable(
-                style_table={
-                    'maxHeight': '300',
-                    'overflowY': 'scroll',
-                    # 'overflowX': 'scroll'
-                },
-                id='category-container',
-                columns=[{'name': 'name', 'id': 'name'}],
-                data=[],
-                editable=True,
-                sorting=False,
-                # row_deletable=True
-            ),
-
             html.Div([
-                dcc.Input(
-                    id='add-category-name',
-                    placeholder='New Category',
-                    value='',
-                    style={'padding': 10}
+                dash_table.DataTable(
+                    style_table={
+                        'maxHeight': '300',
+                        'overflowY': 'scroll',
+                        # 'overflowX': 'scroll'
+                    },
+                    id='category-container',
+                    columns=[{'name': 'name', 'id': 'name'}],
+                    data=[],
+                    editable=True,
+                    sorting=False,
+                    # row_deletable=True
                 ),
-                html.Button('Add Category', id='add-category-button', n_clicks=0)
-            ], style={'height': 50}),
-        ])
+
+                html.Div([
+                    dcc.Input(
+                        id='add-category-name',
+                        placeholder='New Category',
+                        value='',
+                        style={'padding': 10}
+                    ),
+                    html.Button('Add Category', id='add-category-button',
+                                n_clicks=0)
+                ], style={'height': 50}),
+            ], className="six columns"),
+            html.Div([
+                dash_table.DataTable(
+                    style_table={
+                        'maxHeight': '300',
+                        'overflowY': 'scroll',
+                        # 'overflowX': 'scroll'
+                    },
+                    id='subcategory-container',
+                    columns=[{'name': 'Subcategory', 'id': 'subcategory'},
+                             {'name': 'Category', 'id': 'category'}],
+                    data=[],
+                    editable=True,
+                    sorting=False,
+                    # row_deletable=True
+                ),
+
+                html.Div([
+                    html.Div([
+                        dcc.Input(
+                            id='add-subcategory-name',
+                            placeholder='New Subcategory',
+                            value='',
+                            style={'padding': 10}
+                        ),
+                    ], className='four columns'),
+                    html.Div([
+                        dcc.Dropdown(
+                            id='add-subcategory-category',
+                            options=[],
+                            value=None
+                        ),
+                    ], className='four columns'),
+                    html.Div([
+                        html.Button('Add Subcategory',
+                                    id='add-subcategory-button',
+                                    n_clicks=0)
+                    ], className='four columns'),
+                ], className="row"),
+            ], className="six columns")
+        ], className="row")
     ])
 
 
@@ -196,12 +240,43 @@ def update_columns(timestamp, prev_rows, rows):
                    State('add-category-name', 'value')])
 def update_categories(clicks, categories, new_category):
     if new_category is not '':
-        current = current_user.categories.filter(Category.name == new_category).first()
+        current = current_user.categories.\
+            filter(Category.name == new_category).first()
         if current is None:
             category = Category(name=new_category, owner=current_user)
             db.session.add(category)
             db.session.commit()
     return [{'name': tx.name} for tx in current_user.categories.all()]
+
+
+@dashapp.callback(Output('subcategory-container', 'data'),
+                  [Input('add-subcategory-button', 'n_clicks')],
+                  [State('subcategory-container', 'data'),
+                   State('add-subcategory-name', 'value'),
+                   State('add-subcategory-category', 'value')])
+def update_scategories(clicks, subcategories,
+                       new_subcategory_name,
+                       new_subcategory_category):
+    if new_subcategory_name is not '' and new_subcategory_category is not None:
+        current = current_user.subcategories.\
+            filter(Subcategory.name == new_subcategory_name).first()
+        if current is None:
+            category = current_user.categories.\
+                filter(Category.name == new_subcategory_category).first()
+            if category is not None:
+                subcategory = Subcategory(name=new_subcategory_name,
+                                          owner=current_user,
+                                          category=category)
+                db.session.add(subcategory)
+                db.session.commit()
+    return [{'subcategory': tx.name, 'category': tx.category.name}
+            for tx in current_user.subcategories.all()]
+
+
+@dashapp.callback(Output('add-subcategory-category', 'options'),
+                  [Input('category-container', 'data')])
+def update_subcategory_add_dropdown(data):
+    return [{'label': i['name'], 'value': i['name']} for i in data]
 
 
 @dashapp.callback(Output('monthly-graph', 'figure'),
@@ -214,7 +289,7 @@ def update_monthly_graph(date):
 
     outcome_aggregation = []
     income_aggregation = []
-    
+
     for k, g in groupby(data_outcome, lambda x: (x.date.year, x.date.month)):
         month = str(k[0])+"-"+str(k[1])
         month_sum = 0
@@ -241,9 +316,7 @@ def update_monthly_graph(date):
              'name': 'Income'},
         ],
         'layout': {
-            'title': 'Dash Data Visualization',
-            # ,
-            # 
+            'title': 'Monthly Aggregations',
             'xaxis': {'tickformat': '%Y-%m',
                       # 'dtick': 86400000.0*30,
                       'range': [dt.now() - timedelta(days=365), dt.now()]}

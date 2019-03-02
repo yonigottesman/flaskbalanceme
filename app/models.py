@@ -9,11 +9,14 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), index=True, unique=True)
     password_hash = db.Column(db.String(128))
     transactions = db.relationship('Transaction', backref='owner',
-                                   lazy='dynamic', cascade='delete')
+                                   lazy='dynamic',
+                                   cascade='all, delete, delete-orphan')
     categories = db.relationship('Category', backref='owner',
-                                 lazy='dynamic', cascade='delete')
+                                 lazy='dynamic',
+                                 cascade='all, delete, delete-orphan')
     subcategories = db.relationship('Subcategory', backref='owner',
-                                    lazy='dynamic', cascade='delete')
+                                    lazy='dynamic',
+                                    cascade='all, delete, delete-orphan')
 
     def __repr__(self):
         return '<User {}>'.format(self.username)

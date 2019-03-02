@@ -1,8 +1,8 @@
-"""create tables
+"""create tables with cascade
 
-Revision ID: bcf18fd569e3
+Revision ID: 30c84c22d2a6
 Revises: 
-Create Date: 2019-02-24 20:30:56.967991
+Create Date: 2019-03-02 14:03:31.795406
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'bcf18fd569e3'
+revision = '30c84c22d2a6'
 down_revision = None
 branch_labels = None
 depends_on = None
