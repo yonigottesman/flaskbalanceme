@@ -41,14 +41,14 @@ class Transaction(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     subcategory_id = db.Column(db.Integer, db.ForeignKey('subcategory.id'))
 
-    def valueOf(tdict, user, subcategory):
+    def valueOf(tdict, user):
         return Transaction(date=tdict['date'],
                            merchant=tdict['merchant'],
                            amount=tdict['amount'],
                            comment=tdict['comment'],
                            source=tdict['source'],
                            owner=user,
-                           subcategory=subcategory)
+                           subcategory=tdict['subcategory'])
 
     def to_dict(self):
         return {'date': self.date,
@@ -65,6 +65,7 @@ class Transaction(db.Model):
         self.amount = tdict['amount']
         self.comment = tdict['comment']
         self.source = tdict['source']
+        self.subcategory = tdict['subcategory']
 
     def column(name):
         string_to_column = {'date': Transaction.date,

@@ -1,5 +1,5 @@
 from app import create_app, db
-from app.models import User, Transaction, Category, Subcategory
+from app.models import User, Transaction, Category, Subcategory, Rule
 
 
 # Create Flask server app
@@ -15,4 +15,5 @@ def make_shell_context():
             'User': User,
             'Transaction': Transaction,
             'Category': Category,
-            'Subcategory': Subcategory}
+            'Subcategory': Subcategory,
+            'Rule': Rule}

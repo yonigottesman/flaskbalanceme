@@ -31,12 +31,38 @@ def logout():
     return redirect(url_for('main.index'))
 
 
+startup_categories = [{'category': 'untagged', 'subcategory': ['untagged']},
+                      {'category': 'Bills', 'subcategory': ['Gas/Electricity/Water' ,
+                                                            'Internet/Cellular/TV']},
+                      {'category': 'Cash Withdraw', 'subcategory': ['Cash Withdraw']},
+                      {'category': 'Clothing', 'subcategory': ['Clothing']},
+                      {'category': 'Education', 'subcategory': ['Higher Education']},
+                      {'category': 'Fitness', 'subcategory': ['Sport Class']},
+                      {'category': 'Fun Stuff', 'subcategory': ['untagged']},
+                      {'category': 'House Stuff', 'subcategory': ['Furniture',
+                                                                  'Elextronics',
+                                                                  'House Stuff']},
+                      {'category': 'Housing', 'subcategory': ['House Commitee','Rent','Property Tax']},
+                      {'category': 'Investments', 'subcategory': ['Stocks', 'Real Estate']},
+                      {'category': 'Kids', 'subcategory': ['Day care', 'Kids Clothing', 'Kids Toys', 'Kids Gear']},
+                      {'category': 'Medical', 'subcategory': ['Medical Insurance']},
+                      {'category': 'other', 'subcategory': ['Presents', 'Other']},
+                      {'category': 'Recreational', 'subcategory': ['Restaurants', 'Going out','Books/Games/Apps','Treats']},
+                      {'category': 'Reimbursement', 'subcategory': ['Reimbursement']},
+                      {'category': 'Services', 'subcategory': ['Hair/Cosmetics/Cleaner']},
+                      {'category': 'Supplies', 'subcategory': ['Cosmetics', 'Groceries']},
+                      {'category': 'Transportation', 'subcategory': ['Private car', 'Public Transportaion']},
+                      {'category': 'Vacation', 'subcategory': ['Vacation']}]
+
+
 def init_categories(user):
-    untagged_category = Category(name='untagged', owner=user)
-    db.session.add(untagged_category)
-    untagged_subcategory = Subcategory(name='untagged',
-                                       owner=user, category=untagged_category)
-    db.session.add(untagged_subcategory)
+    for category_dict in startup_categories:
+        category = Category(name=category_dict['category'], owner=user)
+        db.session.add(category)
+        for subcat in category_dict['subcategory']:
+            subcategory = Subcategory(name=subcat,
+                                      owner=user, category=category)
+            db.session.add(subcategory)
     db.session.commit()
 
 

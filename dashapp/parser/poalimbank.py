@@ -5,6 +5,8 @@ import io
 from datetime import datetime
 import math
 
+visa_transaction_merchants = ['ישראכרט','מסטרקרד','כרטיסי אשראי ל','לאומי קארד בע"','אמריקן אקספרס']
+
 
 def parse_row(row, source):
     date = None
@@ -12,6 +14,8 @@ def parse_row(row, source):
     try:
         date = (next(values_iterator).date())
         merchant = next(values_iterator)
+        if merchant in visa_transaction_merchants:
+            return None
         info = next(values_iterator)
         id = next(values_iterator)
         expense = next(values_iterator)

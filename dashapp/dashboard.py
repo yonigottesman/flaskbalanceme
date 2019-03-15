@@ -12,6 +12,9 @@ import json
 from itertools import groupby
 from datetime import timedelta
 
+import pandas as pd
+from collections import OrderedDict
+
 colors = {
     'background': '#111111',
     'text': '#7FDBFF'
@@ -24,11 +27,13 @@ table_columns = [{'name': 'date', 'id': 'date', 'editable': False},
                  {'name': 'comment', 'id': 'comment'},
                  {'name': 'source', 'id': 'source'},
                  {'name': 'tx-id', 'id': 'tx_id', 'hidden': True},
-                 {'name': 'subcategory', 'id': 'subcategory'}]
+                 {'name': 'subcategory', 'id': 'subcategory',
+                  'presentation': 'dropdown'}]
 
 dashapp.css.append_css({
     'external_url': 'https://codepen.io/chriddyp/pen/bWLwgP.css'
 })
+
 
 dashapp.layout = html.Div(
     [
@@ -83,7 +88,8 @@ dashapp.layout = html.Div(
                     sorting='be',
                     sorting_type='single',
                     sorting_settings=[{'column_id': 'date',
-                                       'direction': 'asc'}]
+                                       'direction': 'asc'}],
+                    column_static_dropdown=[]
                     # filtering=False,
                     # n_fixed_rows=1,
                 )],
@@ -126,6 +132,7 @@ dashapp.layout = html.Div(
                 ], style={'height': 50}),
             ], className="six columns"),
             html.Div([
+                html.Div(id='edit-null-div2', style={'display': 'none'}),
                 dash_table.DataTable(
                     style_table={
                         'maxHeight': '300',
@@ -212,7 +219,7 @@ dashapp.layout = html.Div(
                   [Input('datatable-container', 'pagination_settings'),
                    Input('signal', 'children'),
                    Input('datatable-container', 'sorting_settings')])
-def update_graph(pagination_settings, children, sorting_settings):
+def update_table(pagination_settings, children, sorting_settings):
     if len(sorting_settings) == 0:
         order_by = Transaction.column('date').asc()
     else:
@@ -235,6 +242,43 @@ def update_graph(pagination_settings, children, sorting_settings):
                       pagination_settings['page_size'], False).items])
 
 
+@dashapp.callback(Output('datatable-container', 'column_static_dropdown'),
+                  [Input('signal', 'children')])
+def update_graph2(signal):
+
+    subcategories = [sub.name for sub in current_user.subcategories.all()]
+    column_static_dropdown = [
+        {
+            'id': 'subcategory',
+            'dropdown': [
+                {'label': i, 'value': i}
+                for i in subcategories
+            ]
+        }
+    ]
+    return column_static_dropdown
+
+
+def rule_matches(transaction, rule):
+    if rule.text in transaction['merchant'] or \
+       rule.text in transaction['comment']:
+        return True
+    else:
+        return False
+
+
+def assign_subcategories(transactions):
+    rules = current_user.rules.all()
+    untagged = current_user.subcategories\
+                           .filter(Subcategory.name == 'untagged').first()
+    for tx in transactions:
+        for rule in rules:
+            if rule_matches(tx, rule):
+                tx['subcategory'] = rule.subcategory
+            else:
+                tx['subcategory'] = untagged
+
+
 @dashapp.callback(Output('signal', 'children'),
                   [Input('datatable-upload', 'contents'),
                    Input('date-picker-range', 'start_date'),
@@ -243,10 +287,10 @@ def update_graph(pagination_settings, children, sorting_settings):
 def update_output(contents, start_date, end_date, filename):
 
     if contents is not None:
-        untagged = current_user.subcategories\
-                               .filter(Subcategory.name == 'untagged').first()
+
         transactions = get_transactions(contents, filename)
-        [db.session.add(Transaction.valueOf(tx, current_user, untagged))
+        assign_subcategories(transactions)
+        [db.session.add(Transaction.valueOf(tx, current_user))
          for tx in transactions]
         db.session.commit()
 
@@ -261,7 +305,6 @@ def update_output(contents, start_date, end_date, filename):
 def update_columns(timestamp, prev_rows, rows):
     if (timestamp is None):
         return None
-
     # Find changed transaction
     for prev, curr in zip(prev_rows, rows):
         if (prev != curr):
@@ -270,8 +313,13 @@ def update_columns(timestamp, prev_rows, rows):
                                            .all()
             if len(txs) == 1:
                 tx = txs[0]
-                tx.update(curr)
-                db.session.commit()
+                sc = current_user.subcategories.filter(Subcategory.name
+                                                       == curr['subcategory'])\
+                                               .first()
+                curr['subcategory'] = sc
+                if sc is not None:
+                    tx.update(curr)
+                    db.session.commit()
 
 
 @dashapp.callback(Output('category-container', 'data'),
@@ -294,9 +342,9 @@ def update_categories(clicks, categories, new_category):
                   [State('subcategory-container', 'data'),
                    State('add-subcategory-name', 'value'),
                    State('add-subcategory-category', 'value')])
-def update_scategories(clicks, subcategories,
-                       new_subcategory_name,
-                       new_subcategory_category):
+def add_subcategories(clicks, subcategories,
+                      new_subcategory_name,
+                      new_subcategory_category):
     if new_subcategory_name is not '' and new_subcategory_category is not None:
         current = current_user.subcategories.\
             filter(Subcategory.name == new_subcategory_name).first()
@@ -312,6 +360,35 @@ def update_scategories(clicks, subcategories,
     return [{'subcategory': tx.name, 'category': tx.category.name}
             for tx in current_user.subcategories.all()]
 
+
+@dashapp.callback(
+    Output('edit-null-div2', 'children'),
+    [Input('subcategory-container', 'data_timestamp'),
+     Input('subcategory-container', 'data_previous')],
+    [State('subcategory-container', 'data')])
+def update_subcategories(timestamp, prev_rows, rows):
+    if timestamp is None:
+        return
+
+    for prev, curr in zip(prev_rows, rows):
+        if (prev != curr):
+            pass
+            # tx_id = prev['tx_id']
+            # txs = current_user.transactions.filter(Transaction.id == tx_id)\
+            #                                .all()
+            # if len(txs) == 1:
+            #     tx = txs[0]
+            #     tx.update(curr)
+            #     db.session.commit()
+
+
+def play_rule(rule):
+    transactions = current_user.transactions.all()
+    for transaction in transactions:
+        if rule.text in transaction.merchant or \
+           rule.text in transaction.comment:
+            transaction.subcategory = rule.subcategory
+    
 
 @dashapp.callback(Output('rules-container', 'data'),
                   [Input('add-rule-button', 'n_clicks')],
@@ -332,6 +409,7 @@ def update_rules(clicks, rules,
                             owner=current_user,
                             subcategory=subcategory)
                 db.session.add(rule)
+                play_rule(rule)
                 db.session.commit()
     return [{'contains': tx.text, 'subcategory': tx.subcategory.name}
             for tx in current_user.rules.all()]
