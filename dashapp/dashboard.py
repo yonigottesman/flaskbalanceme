@@ -41,6 +41,12 @@ dashapp.layout = html.Div(
         html.Div([
             # meta
             html.Div([
+
+                dcc.ConfirmDialog(
+                    id='confirm',
+                    message='Add rule?',
+                ),
+                
                 dcc.Upload(
                     id='datatable-upload',
                     children=html.Div([
@@ -298,13 +304,13 @@ def update_output(contents, start_date, end_date, filename):
 
 
 @dashapp.callback(
-    Output('edit-null-div', 'children'),
+    [Output('confirm', 'displayed'), Output('confirm', 'message')],
     [Input('datatable-container', 'data_timestamp'),
      Input('datatable-container', 'data_previous')],
     [State('datatable-container', 'data')])
 def update_columns(timestamp, prev_rows, rows):
     if (timestamp is None):
-        return None
+        return False, 'NONE'
     # Find changed transaction
     for prev, curr in zip(prev_rows, rows):
         if (prev != curr):
@@ -320,7 +326,8 @@ def update_columns(timestamp, prev_rows, rows):
                 if sc is not None:
                     tx.update(curr)
                     db.session.commit()
-
+                    return False,'NONE'
+    return False, 'NONE'
 
 @dashapp.callback(Output('category-container', 'data'),
                   [Input('add-category-button', 'n_clicks')],

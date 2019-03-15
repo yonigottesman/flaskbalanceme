@@ -72,7 +72,8 @@ class Transaction(db.Model):
                             'merchant': Transaction.merchant,
                             'amount': Transaction.amount,
                             'comment': Transaction.comment,
-                            'source': Transaction.source}
+                            'source': Transaction.source,
+                            'subcategory': Transaction.subcategory_id}
         return string_to_column[name]
 
 
