@@ -273,7 +273,7 @@ def display_click_data(clickData, start_date, end_date):
             go.Pie(labels=labels, values=values)
         ],
         'layout': {
-            'title': 'subcategories'
+            'title': category_label
         }
     }
     
