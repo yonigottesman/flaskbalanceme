@@ -11,9 +11,7 @@ from datetime import datetime as dt
 import json
 from itertools import groupby
 from datetime import timedelta
-
-import pandas as pd
-from collections import OrderedDict
+import plotly.graph_objs as go
 
 colors = {
     'background': '#111111',
@@ -102,9 +100,31 @@ dashapp.layout = html.Div(
                      # style={'width': '49%', 'display': 'inline-block'}
             )
         ]),
+        html.Div([
+            
+            html.Div([
+                dcc.Graph(
+                    id='category-pie',
+                    figure={
+                    }
+                )
+            ], className='six columns'),
+            html.Div([
+                dcc.Graph(
+                    id='subcategory-pie',
+                    figure={
+                        'data': [
+
+                        ],
+                        'layout': {
+                            'title': 'Subcategory'
+                        }
+                    }
+                )
+            ], className='six columns'),
+        ], className="row"),
 
         html.Div([
-
             dcc.Graph(
                 id='monthly-graph',
                 figure={}
@@ -221,11 +241,52 @@ dashapp.layout = html.Div(
     ])
 
 
+@dashapp.callback(Output('subcategory-pie', 'figure'),
+                  [Input('category-pie', 'clickData')],
+                  [State('date-picker-range', 'start_date'),
+                   State('date-picker-range', 'end_date')])
+def display_click_data(clickData, start_date, end_date):
+    if clickData is None:
+        return []
+    category_label = clickData['points'][0]['label']
+    subcategories = current_user.categories.\
+        filter(Category.name == category_label).first().subcategories.all()
+
+    sd = (dt.strptime(start_date, '%Y-%m-%d'))
+    ed = (dt.strptime(end_date, '%Y-%m-%d'))
+
+    labels = []
+    values = []
+    for subcategory in subcategories:
+        labels.append(subcategory.name)
+        transactions = subcategory.transactions.filter(Transaction.date >= sd)\
+                                               .filter(Transaction.date <= ed)\
+                                               .filter(Transaction.amount >= 0)\
+                                               .order_by(Transaction.column('date').asc())
+        sum = 0
+        for transaction in transactions:
+            sum = sum + transaction.amount
+        values.append(sum)
+
+    pie = {
+        'data': [
+            go.Pie(labels=labels, values=values)
+        ],
+        'layout': {
+            'title': 'subcategories'
+        }
+    }
+    
+    return pie
+
+
 @dashapp.callback(Output('datatable-container', 'data'),
                   [Input('datatable-container', 'pagination_settings'),
                    Input('signal', 'children'),
                    Input('datatable-container', 'sorting_settings')])
 def update_table(pagination_settings, children, sorting_settings):
+    if children is None:
+        return None
     if len(sorting_settings) == 0:
         order_by = Transaction.column('date').asc()
     else:
@@ -285,7 +346,38 @@ def assign_subcategories(transactions):
                 tx['subcategory'] = untagged
 
 
-@dashapp.callback(Output('signal', 'children'),
+def categories_pie(start_date, end_date):
+    sd = (dt.strptime(start_date, '%Y-%m-%d'))
+    ed = (dt.strptime(end_date, '%Y-%m-%d'))
+
+    transactions = current_user.transactions.filter(Transaction.date >= sd)\
+                                            .filter(Transaction.date <= ed)\
+                                            .filter(Transaction.amount >= 0)\
+                                            .order_by(Transaction.column('date').asc())
+
+    sums = {}
+    for tx in transactions:
+        if tx.subcategory.category.name in sums:
+            sums[tx.subcategory.category.name] = sums[tx.subcategory.category.name] + tx.amount
+        else:
+            sums[tx.subcategory.category.name] = tx.amount
+
+    labels = [k for (k, v) in sums.items()]
+    values = [v for (k, v) in sums.items()]
+
+    pie = {
+        'data': [
+            go.Pie(labels=labels, values=values)
+        ],
+        'layout': {
+            'title': 'Category'
+        }
+    }
+    return pie
+
+
+@dashapp.callback([Output('signal', 'children'),
+                   Output('category-pie', 'figure')],
                   [Input('datatable-upload', 'contents'),
                    Input('date-picker-range', 'start_date'),
                    Input('date-picker-range', 'end_date')],
@@ -300,7 +392,7 @@ def update_output(contents, start_date, end_date, filename):
          for tx in transactions]
         db.session.commit()
 
-    return json.dumps({'start_date': start_date, 'end_date': end_date})
+    return json.dumps({'start_date': start_date, 'end_date': end_date}), categories_pie(start_date, end_date)
 
 
 @dashapp.callback(
@@ -326,8 +418,9 @@ def update_columns(timestamp, prev_rows, rows):
                 if sc is not None:
                     tx.update(curr)
                     db.session.commit()
-                    return False,'NONE'
+                    return False, 'NONE'
     return False, 'NONE'
+
 
 @dashapp.callback(Output('category-container', 'data'),
                   [Input('add-category-button', 'n_clicks')],
