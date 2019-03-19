@@ -339,11 +339,10 @@ def assign_subcategories(transactions):
     untagged = current_user.subcategories\
                            .filter(Subcategory.name == 'untagged').first()
     for tx in transactions:
+        tx['subcategory'] = untagged
         for rule in rules:
             if rule_matches(tx, rule):
                 tx['subcategory'] = rule.subcategory
-            else:
-                tx['subcategory'] = untagged
 
 
 def categories_pie(start_date, end_date):
