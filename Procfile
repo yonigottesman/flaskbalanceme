@@ -1,1 +1,1 @@
-web: flask db upgrade; gunicorn balanceme:balanceme
+web: flask db upgrade; gunicorn balanceme:app.server
