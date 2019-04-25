@@ -375,6 +375,32 @@ def categories_pie(start_date, end_date):
     return pie
 
 
+def remove_duplicates(new_transactions):
+    min_date = min(new_transactions, key=lambda tx: tx['date'])['date']
+    max_date = max(new_transactions, key=lambda tx: tx['date'])['date']
+    transactions = current_user.transactions.filter(Transaction.date >= min_date)\
+                                            .filter(Transaction.date <= max_date)\
+                                            .order_by(Transaction.column('date').asc())
+
+    filtered_transactions = []
+
+    # TODO search with bisect
+    for new_tx in new_transactions:
+        found = False
+        for old_tx in transactions:
+            if new_tx['amount'] == old_tx.amount and \
+               new_tx['date'] == old_tx.date and \
+               new_tx['merchant'] == old_tx.merchant and \
+               new_tx['comment'] == old_tx.comment and \
+               new_tx['source'] == old_tx.source:
+                found = True
+                break
+        if found is False:
+            filtered_transactions.append(new_tx)
+
+    return filtered_transactions
+
+
 @dashapp.callback([Output('signal', 'children'),
                    Output('category-pie', 'figure')],
                   [Input('datatable-upload', 'contents'),
@@ -384,9 +410,10 @@ def categories_pie(start_date, end_date):
 def update_output(contents, start_date, end_date, filename):
 
     if contents is not None:
-
         transactions = get_transactions(contents, filename)
         assign_subcategories(transactions)
+        transactions = remove_duplicates(transactions)
+        # print(transactions)
         [db.session.add(Transaction.valueOf(tx, current_user))
          for tx in transactions]
         db.session.commit()

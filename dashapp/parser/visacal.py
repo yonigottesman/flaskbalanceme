@@ -36,7 +36,7 @@ def parse_transaction(line, source):
     if '-' in amount:
         amount = '-' + amount.replace('-', '')
     amount = float(amount)
-    comment = ""
+    comment = ''
     if len(splits) == 5:
         comment = line.split("\t")[4]
 

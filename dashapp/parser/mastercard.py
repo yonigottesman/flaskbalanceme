@@ -19,7 +19,8 @@ def parse_row(row, source):
         next(values_iterator)
         next(values_iterator)
         comment = next(values_iterator)
-
+        if pd.isna(comment):
+            comment = ''
         transaction = {'date': date, 'merchant': merchant, 'amount': amount,
                        'comment': comment, 'source': source}
 
