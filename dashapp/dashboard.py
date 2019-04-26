@@ -309,10 +309,7 @@ def update_table(pagination_settings, children, sorting_settings):
                       pagination_settings['page_size'], False).items])
 
 
-@dashapp.callback(Output('datatable-container', 'column_static_dropdown'),
-                  [Input('signal', 'children')])
-def update_graph2(signal):
-
+def subcategory_dropdown_list():
     subcategories = [sub.name for sub in current_user.subcategories.all()]
     column_static_dropdown = [
         {
@@ -352,12 +349,14 @@ def categories_pie(start_date, end_date):
     transactions = current_user.transactions.filter(Transaction.date >= sd)\
                                             .filter(Transaction.date <= ed)\
                                             .filter(Transaction.amount >= 0)\
-                                            .order_by(Transaction.column('date').asc())
+                                            .order_by(Transaction
+                                                      .column('date').asc())
 
     sums = {}
     for tx in transactions:
         if tx.subcategory.category.name in sums:
-            sums[tx.subcategory.category.name] = sums[tx.subcategory.category.name] + tx.amount
+            sums[tx.subcategory.category.name] = \
+                sums[tx.subcategory.category.name] + tx.amount
         else:
             sums[tx.subcategory.category.name] = tx.amount
 
@@ -402,7 +401,9 @@ def remove_duplicates(new_transactions):
 
 
 @dashapp.callback([Output('signal', 'children'),
-                   Output('category-pie', 'figure')],
+                   Output('category-pie', 'figure'),
+                   Output('monthly-graph', 'figure'),
+                   Output('datatable-container', 'column_static_dropdown')],
                   [Input('datatable-upload', 'contents'),
                    Input('date-picker-range', 'start_date'),
                    Input('date-picker-range', 'end_date')],
@@ -418,7 +419,10 @@ def update_output(contents, start_date, end_date, filename):
          for tx in transactions]
         db.session.commit()
 
-    return json.dumps({'start_date': start_date, 'end_date': end_date}), categories_pie(start_date, end_date)
+    return json.dumps({'start_date': start_date, 'end_date': end_date}),\
+        categories_pie(start_date, end_date),\
+        update_monthly_graph(),\
+        subcategory_dropdown_list()
 
 
 @dashapp.callback(
@@ -514,7 +518,7 @@ def play_rule(rule):
         if rule.text in transaction.merchant or \
            rule.text in transaction.comment:
             transaction.subcategory = rule.subcategory
-    
+
 
 @dashapp.callback(Output('rules-container', 'data'),
                   [Input('add-rule-button', 'n_clicks')],
@@ -554,9 +558,7 @@ def update_rule_add_dropdown(data):
             for i in data]
 
 
-@dashapp.callback(Output('monthly-graph', 'figure'),
-                  [Input('signal', 'children')])
-def update_monthly_graph(date):
+def update_monthly_graph():
     data_outcome = current_user.transactions.filter(Transaction.amount >= 0).\
         order_by(Transaction.column('date').asc())
     data_income = current_user.transactions.filter(Transaction.amount < 0).\
