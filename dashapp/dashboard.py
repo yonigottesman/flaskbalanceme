@@ -352,6 +352,7 @@ def categories_pie(start_date, end_date):
                                             .order_by(Transaction
                                                       .column('date').asc())
 
+    total_sum = 0
     sums = {}
     for tx in transactions:
         if tx.subcategory.category.name in sums:
@@ -359,7 +360,7 @@ def categories_pie(start_date, end_date):
                 sums[tx.subcategory.category.name] + tx.amount
         else:
             sums[tx.subcategory.category.name] = tx.amount
-
+    total_sum = int(sum(sums.values()))
     labels = [k for (k, v) in sums.items()]
     values = [v for (k, v) in sums.items()]
 
@@ -368,7 +369,8 @@ def categories_pie(start_date, end_date):
             go.Pie(labels=labels, values=values)
         ],
         'layout': {
-            'title': 'Category'
+            'title': start_date.replace('-', '.') + ' - '
+            + end_date.replace('-', '.') + '<br>' + str(total_sum)+'₪'
         }
     }
     return pie
