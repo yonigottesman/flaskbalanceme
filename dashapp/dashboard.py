@@ -13,6 +13,8 @@ from itertools import groupby
 from datetime import timedelta
 import plotly.graph_objs as go
 from sqlalchemy import or_
+import dash_daq as daq
+import dash_html_components as html 
 
 colors = {
     'background': '#111111',
@@ -102,7 +104,7 @@ dashapp.layout = html.Div(
                     id='datatable-container',
                     columns=table_columns,
                     data=[],
-                    editable=True,
+                    editable=False,
                     sorting='be',
                     sorting_type='single',
                     sorting_settings=[{'column_id': 'date',
@@ -112,6 +114,13 @@ dashapp.layout = html.Div(
                     # n_fixed_rows=1,
                 )],
                      # style={'width': '49%', 'display': 'inline-block'}
+            ),
+            daq.ToggleSwitch(
+                id='toggle-edit-table',
+                label='Edit table',
+                labelPosition='bottom',
+                size=50,
+                color='green'
             )
         ]),
         html.Div([
@@ -666,3 +675,10 @@ def update_monthly_graph():
         }
     }
     return figure
+
+
+@dashapp.callback(Output('datatable-container', 'editable'),
+                  [Input('toggle-edit-table', 'value')])
+def toggle_edit_table(value):
+    return value
+
