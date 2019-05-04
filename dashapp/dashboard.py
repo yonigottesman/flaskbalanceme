@@ -72,9 +72,9 @@ dashapp.layout = html.Div(
                     start_date=dt(2019, 1, 1),
                     end_date=dt(2019, 2, 1),
                 ),
-                html.P('Exclude:'),
+                html.P('Include:'),
                 dcc.Dropdown(
-                    id='exclude-category-dropdown',
+                    id='include-category-dropdown',
                     options=[],
                     multi=True
                 ),
@@ -225,7 +225,7 @@ dashapp.layout = html.Div(
         html.Div([
             dash_table.DataTable(
                 style_table={
-                    'maxHeight': '300',
+                    'maxHeight': '700',
                     'overflowY': 'scroll',
                     # 'overflowX': 'scroll'
                 },
@@ -309,14 +309,14 @@ def display_click_data(clickData, start_date, end_date):
                    Input('datatable-container', 'sorting_settings')],
                   [State('date-picker-range', 'start_date'),
                    State('date-picker-range', 'end_date'),
-                   State('exclude-category-dropdown', 'value'),
+                   State('include-category-dropdown', 'value'),
                    State('source-dropdown', 'value')])
 def update_table_pagination(pagination_settings,
                             children,
                             sorting_settings,
                             start_date,
                             end_date,
-                            exclude_list,
+                            include_list,
                             source_list):
     if children is None:
         return None
@@ -332,20 +332,21 @@ def update_table_pagination(pagination_settings,
     sd = (dt.strptime(hidden_dict['start_date'], '%Y-%m-%d'))
     ed = (dt.strptime(hidden_dict['end_date'], '%Y-%m-%d'))
 
-    # pagination of SQLAlchemy starts from 1
     query = current_user.transactions.join(Subcategory).join(Category).\
         filter(Transaction.date >= sd).\
         filter(Transaction.date <= ed)
 
-    if exclude_list is not None:
-        for exclude in exclude_list:
-            query = query.filter(Category.name != exclude)
+    if include_list is not None:
+        conditions = [Category.name == category
+                      for category in include_list]
+        query = query.filter(or_(*conditions))
 
     if source_list is not None:
         conditions = [Transaction.source.contains(source)
                       for source in source_list]
         query = query.filter(or_(*conditions))
 
+    # pagination of SQLAlchemy starts from 1
     query = query.order_by(order_by).\
         paginate(pagination_settings['current_page'] + 1,
                  pagination_settings['page_size'], False).items
@@ -386,7 +387,7 @@ def assign_subcategories(transactions):
                 tx['subcategory'] = rule.subcategory
 
 
-def categories_pie(start_date, end_date, exclude_list, source_list):
+def categories_pie(start_date, end_date, include_list, source_list):
     sd = (dt.strptime(start_date, '%Y-%m-%d'))
     ed = (dt.strptime(end_date, '%Y-%m-%d'))
 
@@ -397,9 +398,10 @@ def categories_pie(start_date, end_date, exclude_list, source_list):
                         .filter(Transaction.date <= ed)\
                         .filter(Transaction.amount >= 0)
 
-    if exclude_list is not None:
-        for exclude in exclude_list:
-            query = query.filter(Category.name != exclude)
+    if include_list is not None:
+        conditions = [Category.name == category
+                      for category in include_list]
+        query = query.filter(or_(*conditions))
 
     if source_list is not None:
         conditions = [Transaction.source.contains(source)
@@ -459,19 +461,27 @@ def remove_duplicates(new_transactions):
     return filtered_transactions
 
 
-@dashapp.callback([Output('exclude-category-dropdown', 'options'),
+@dashapp.callback([Output('include-category-dropdown', 'options'),
+                   Output('include-category-dropdown', 'value'),
                    Output('source-dropdown', 'options'),
-                   Output('source-dropdown', 'value')],
+                   Output('source-dropdown', 'value'),
+                   Output('date-picker-range', 'start_date'),
+                   Output('date-picker-range', 'end_date')],
                   [Input('dummy_div', 'children')])
 def update_filtering_fields(dummy):
-    exclude_options = [{'label': category.name, 'value': category.name}
-                       for category in current_user.categories.all()]
+    include_category_values = [category.name
+                               for category in current_user.categories.all()]
+    include_category_options = [{'label': category, 'value': category}
+                                for category in include_category_values]
+    
     sources = [source.source for source in db.session.query(Transaction.source)
                .filter(Transaction.owner == current_user)
                .distinct().all()]
     source_options = [{'label': source, 'value': source}
                       for source in sources]
-    return exclude_options, source_options, sources
+    return include_category_options, include_category_values, source_options,\
+        sources, dt(2019, 1, 1),\
+        dt(dt.now().year, dt.now().month, dt.now().day)
 
 
 @dashapp.callback([Output('signal', 'children'),
@@ -481,10 +491,10 @@ def update_filtering_fields(dummy):
                   [Input('datatable-upload', 'contents'),
                    Input('date-picker-range', 'start_date'),
                    Input('date-picker-range', 'end_date'),
-                   Input('exclude-category-dropdown', 'value'),
+                   Input('include-category-dropdown', 'value'),
                    Input('source-dropdown', 'value')],
                   [State('datatable-upload', 'filename')])
-def update_output(contents, start_date, end_date, exclude_list, source_list, filename):
+def update_output(contents, start_date, end_date, include_list, source_list, filename):
 
     if contents is not None:
         transactions = get_transactions(contents, filename)
@@ -495,7 +505,7 @@ def update_output(contents, start_date, end_date, exclude_list, source_list, fil
         db.session.commit()
 
     return json.dumps({'start_date': start_date, 'end_date': end_date}),\
-        categories_pie(start_date, end_date, exclude_list, source_list),\
+        categories_pie(start_date, end_date, include_list, source_list),\
         update_monthly_graph(),\
         subcategory_dropdown_list()
 
