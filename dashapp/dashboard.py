@@ -66,19 +66,25 @@ dashapp.layout = html.Div(
                         'margin': '10px'
                     },
                 ),
-
-                dcc.DatePickerRange(
-                    id='date-picker-range',
-                    start_date=dt(2019, 1, 1),
-                    end_date=dt(2019, 2, 1),
-                ),
-                html.P('Include:'),
+                html.Div([
+                    html.Div([
+                        dcc.DatePickerRange(
+                            id='date-picker-range',
+                            start_date=dt(2019, 1, 1),
+                            end_date=dt(2019, 2, 1),
+                        )
+                    ], className="four columns"),
+                    html.Div([
+                        dcc.Input(id='search-input', type='text', placeholder='Search transaction')
+                    ], className="four columns"),
+                ], className="row"),
+                # html.P('Include:'),
                 dcc.Dropdown(
                     id='include-category-dropdown',
                     options=[],
                     multi=True
                 ),
-                html.P('source:'),
+                # html.P('source:'),
                 dcc.Dropdown(
                     id='source-dropdown',
                     options=[],
@@ -303,6 +309,35 @@ def display_click_data(clickData, start_date, end_date):
     return pie
 
 
+def filter_query(start_date, end_date,
+                 category_list, source_list, search_string):
+
+    sd = (dt.strptime(start_date, '%Y-%m-%d'))
+    ed = (dt.strptime(end_date, '%Y-%m-%d'))
+
+    query = current_user.transactions.join(Subcategory).join(Category).\
+        filter(Transaction.date >= sd).\
+        filter(Transaction.date <= ed)
+
+    if category_list is not None:
+        conditions = [Category.name == category
+                      for category in category_list]
+        query = query.filter(or_(*conditions))
+
+    if source_list is not None:
+        conditions = [Transaction.source.contains(source)
+                      for source in source_list]
+        query = query.filter(or_(*conditions))
+
+    if search_string is not None:
+        conditions = [Transaction.merchant.contains(search_string),
+                      Transaction.amount.contains(search_string),
+                      Transaction.comment.contains(search_string)]
+        query = query.filter(or_(*conditions))
+
+    return query
+
+
 @dashapp.callback(Output('datatable-container', 'data'),
                   [Input('datatable-container', 'pagination_settings'),
                    Input('signal', 'children'),
@@ -310,15 +345,17 @@ def display_click_data(clickData, start_date, end_date):
                   [State('date-picker-range', 'start_date'),
                    State('date-picker-range', 'end_date'),
                    State('include-category-dropdown', 'value'),
-                   State('source-dropdown', 'value')])
+                   State('source-dropdown', 'value'),
+                   State('search-input', 'value')])
 def update_table_pagination(pagination_settings,
-                            children,
+                            signal,
                             sorting_settings,
                             start_date,
                             end_date,
                             include_list,
-                            source_list):
-    if children is None:
+                            source_list,
+                            search_string):
+    if signal is None:
         return None
     if len(sorting_settings) == 0:
         order_by = Transaction.column('date').asc()
@@ -328,23 +365,9 @@ def update_table_pagination(pagination_settings,
             order_by = field.asc()
         else:
             order_by = field.desc()
-    hidden_dict = json.loads(children)
-    sd = (dt.strptime(hidden_dict['start_date'], '%Y-%m-%d'))
-    ed = (dt.strptime(hidden_dict['end_date'], '%Y-%m-%d'))
 
-    query = current_user.transactions.join(Subcategory).join(Category).\
-        filter(Transaction.date >= sd).\
-        filter(Transaction.date <= ed)
-
-    if include_list is not None:
-        conditions = [Category.name == category
-                      for category in include_list]
-        query = query.filter(or_(*conditions))
-
-    if source_list is not None:
-        conditions = [Transaction.source.contains(source)
-                      for source in source_list]
-        query = query.filter(or_(*conditions))
+    query = filter_query(start_date,
+                         end_date, include_list, source_list, search_string)
 
     # pagination of SQLAlchemy starts from 1
     query = query.order_by(order_by).\
@@ -387,28 +410,16 @@ def assign_subcategories(transactions):
                 tx['subcategory'] = rule.subcategory
 
 
-def categories_pie(start_date, end_date, include_list, source_list):
-    sd = (dt.strptime(start_date, '%Y-%m-%d'))
-    ed = (dt.strptime(end_date, '%Y-%m-%d'))
+def categories_pie(start_date,
+                   end_date,
+                   include_list,
+                   source_list,
+                   search_string):
 
-    query = current_user.transactions\
-                        .join(Subcategory)\
-                        .join(Category)\
-                        .filter(Transaction.date >= sd)\
-                        .filter(Transaction.date <= ed)\
-                        .filter(Transaction.amount >= 0)
-
-    if include_list is not None:
-        conditions = [Category.name == category
-                      for category in include_list]
-        query = query.filter(or_(*conditions))
-
-    if source_list is not None:
-        conditions = [Transaction.source.contains(source)
-                      for source in source_list]
-        query = query.filter(or_(*conditions))
-
-    transactions = query.order_by(Transaction .column('date').asc())
+    transactions = filter_query(start_date, end_date, include_list,
+                                source_list, search_string)\
+                                .filter(Transaction.amount >= 0)\
+                                .order_by(Transaction .column('date').asc())
 
     total_sum = 0
     sums = {}
@@ -492,9 +503,11 @@ def update_filtering_fields(dummy):
                    Input('date-picker-range', 'start_date'),
                    Input('date-picker-range', 'end_date'),
                    Input('include-category-dropdown', 'value'),
-                   Input('source-dropdown', 'value')],
+                   Input('source-dropdown', 'value'),
+                   Input('search-input', 'value')],
                   [State('datatable-upload', 'filename')])
-def update_output(contents, start_date, end_date, include_list, source_list, filename):
+def update_output(contents, start_date, end_date, include_list,
+                  source_list, search_string, filename):
 
     if contents is not None:
         transactions = get_transactions(contents, filename)
@@ -505,7 +518,7 @@ def update_output(contents, start_date, end_date, include_list, source_list, fil
         db.session.commit()
 
     return json.dumps({'start_date': start_date, 'end_date': end_date}),\
-        categories_pie(start_date, end_date, include_list, source_list),\
+        categories_pie(start_date, end_date, include_list, source_list, search_string),\
         update_monthly_graph(),\
         subcategory_dropdown_list()
 
