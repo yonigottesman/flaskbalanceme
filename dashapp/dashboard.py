@@ -331,7 +331,7 @@ def filter_query(start_date, end_date,
 
     if search_string is not None:
         conditions = [Transaction.merchant.contains(search_string),
-                      Transaction.amount.contains(search_string),
+                      # Transaction.amount.contains(search_string),
                       Transaction.comment.contains(search_string)]
         query = query.filter(or_(*conditions))
 
