@@ -112,6 +112,7 @@ dashapp.layout = html.Div(
                     n_fixed_rows=1,
                     data=[],
                     editable=False,
+                    row_deletable=False,
                     sorting='be',
                     sorting_type='single',
                     sorting_settings=[{'column_id': 'date',
@@ -528,25 +529,31 @@ def update_output(contents, start_date, end_date, include_list,
     [Input('datatable-container', 'data_timestamp'),
      Input('datatable-container', 'data_previous')],
     [State('datatable-container', 'data')])
-def update_columns(timestamp, prev_rows, rows):
+def update_table(timestamp, prev_rows, rows):
+
     if (timestamp is None):
         return False, 'NONE'
-    # Find changed transaction
-    for prev, curr in zip(prev_rows, rows):
-        if (prev != curr):
-            tx_id = prev['tx_id']
-            txs = current_user.transactions.filter(Transaction.id == tx_id)\
-                                           .all()
-            if len(txs) == 1:
-                tx = txs[0]
-                sc = current_user.subcategories.filter(Subcategory.name
-                                                       == curr['subcategory'])\
-                                               .first()
-                curr['subcategory'] = sc
+
+    for prev_row in prev_rows:
+        curr_row = list(filter(lambda tx: tx['tx_id'] == prev_row['tx_id'], rows))
+        if len(curr_row) == 0 or curr_row[0] != prev_row:
+            tx_id = prev_row['tx_id']
+            tx = current_user.transactions.filter(Transaction.id == tx_id)\
+                                          .first()
+            if len(curr_row) == 0:
+                db.session.delete(tx)
+                db.session.commit()
+            else:
+                curr_row = curr_row[0]
+                sc = current_user\
+                    .subcategories\
+                    .filter(Subcategory.name == curr_row['subcategory'])\
+                    .first()
+                curr_row['subcategory'] = sc
                 if sc is not None:
-                    tx.update(curr)
+                    tx.update(curr_row)
                     db.session.commit()
-                    return False, 'NONE'
+            break
     return False, 'NONE'
 
 
@@ -700,8 +707,8 @@ def update_monthly_graph():
     return figure
 
 
-@dashapp.callback(Output('datatable-container', 'editable'),
+@dashapp.callback([Output('datatable-container', 'editable'),
+                   Output('datatable-container', 'row_deletable')],
                   [Input('toggle-edit-table', 'value')])
 def toggle_edit_table(value):
-    return value
-
+    return value,value
