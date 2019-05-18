@@ -103,12 +103,13 @@ dashapp.layout = html.Div(
                         'page_size': TX_PAGE_SIZE
                     },
                     style_table={
-                        'maxHeight': '300',
+                        'maxHeight': '3000',
                         'overflowY': 'scroll',
                         # 'overflowX': 'scroll'
                     },
                     id='datatable-container',
                     columns=table_columns,
+                    n_fixed_rows=1,
                     data=[],
                     editable=False,
                     sorting='be',
@@ -446,8 +447,8 @@ def categories_pie(start_date,
 
 
 def remove_duplicates(new_transactions):
-    min_date = min(new_transactions, key=lambda tx: tx['date'])['date']
-    max_date = max(new_transactions, key=lambda tx: tx['date'])['date']
+    min_date = min(new_transactions, key=lambda tx: tx['date'])['date'] - timedelta(days=1)
+    max_date = max(new_transactions, key=lambda tx: tx['date'])['date'] + timedelta(days=1)
     transactions = current_user.transactions\
                                .filter(Transaction.date >= min_date)\
                                .filter(Transaction.date <= max_date)\
@@ -459,8 +460,8 @@ def remove_duplicates(new_transactions):
     for new_tx in new_transactions:
         found = False
         for old_tx in transactions:
-            if new_tx['amount'] == old_tx.amount and \
-               new_tx['date'] == old_tx.date and \
+            if (new_tx['amount'] == old_tx.amount or new_tx['amount'] == -1*old_tx.amount) and \
+               (new_tx['date'] == old_tx.date or new_tx['date'] == old_tx.date.date()) and \
                new_tx['merchant'] == old_tx.merchant and \
                new_tx['comment'] == old_tx.comment and \
                new_tx['source'] == old_tx.source:
@@ -468,7 +469,6 @@ def remove_duplicates(new_transactions):
                 break
         if found is False:
             filtered_transactions.append(new_tx)
-
     return filtered_transactions
 
 
