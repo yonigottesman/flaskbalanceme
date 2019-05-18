@@ -75,7 +75,9 @@ class Transaction(db.Model):
                             'source': Transaction.source,
                             'subcategory': Transaction.subcategory_id}
         return string_to_column[name]
-
+    
+    def __str__(self):
+        return str(self.to_dict())
 
 class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
