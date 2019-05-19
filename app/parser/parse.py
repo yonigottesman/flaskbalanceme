@@ -1,6 +1,6 @@
-from dashapp.parser.visacal import get_transactions as get_visa
-from dashapp.parser.mastercard import get_transactions as get_mastercard
-from dashapp.parser.poalimbank import get_transactions as get_poalim
+from app.parser.visacal import get_transactions as get_visa
+from app.parser.mastercard import get_transactions as get_mastercard
+from app.parser.poalimbank import get_transactions as get_poalim
 
 
 def get_transactions(contents, filename):
