@@ -54,6 +54,10 @@ def register_dashapps(app):
     
     dashapp.title = 'Dashapp'
     dashapp.layout = layout
+    dashapp.css.append_css({
+        'external_url': 'https://codepen.io/chriddyp/pen/bWLwgP.css'
+    })
+
     register_callbacks(dashapp)
     _protect_dashviews(dashapp)
 
